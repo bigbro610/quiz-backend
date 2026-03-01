@@ -88,10 +88,6 @@ app.get('/ranking', async (req, res) => {
     console.error("❌ [获取排行失败]:", err.message);
     res.status(500).json([]);
   }
-});app.get('/delete-my-test', async (req, res) => {
-    await pool.query("DELETE FROM ranking_list WHERE user_id = '试运行2'");
-    res.send("已删除");
-});
 
 // 5. 防止 Render 休眠的心跳功能 (方案一)
 const SELF_URL = "https://quiz-backend-1-lrmy.onrender.com/health";
