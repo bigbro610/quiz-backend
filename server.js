@@ -1,4 +1,3 @@
-
 const express = require('express');
 const { Pool } = require('pg');
 const cors = require('cors');
@@ -71,17 +70,7 @@ app.post('/submit', async (req, res) => {
     res.status(500).json({ success: false, error: "数据库写入失败: " + err.message });
   }
 });
-// [临时删除接口] - 访问一次即可删除指定的 ID
-app.get('/delete-test', async (req, res) => {
-  const targetId = '试运行'; // <--- 把这里改成你想删掉的那个名字
-  try {
-    await pool.query('DELETE FROM ranking_list WHERE user_id = $1', [targetId]);
-    console.log(`🗑️ [手动清理] 已尝试删除用户: ${targetId}`);
-    res.send(`用户 ${targetId} 的记录（如果存在）已被清理！`);
-  } catch (err) {
-    res.status(500).send("删除失败: " + err.message);
-  }
-});
+
 // [获取排行榜接口] - 已修改：同名合并，只取最高分
 app.get('/ranking', async (req, res) => {
   try {
