@@ -1,9 +1,10 @@
 {
   "name": "quiz-backend",
   "version": "1.0.0",
-  "main": "server.js", 
+  "description": "Quiz Backend for Dadi",
+  "main": "server.js",
   "scripts": {
-    "start": "node server.js" 
+    "start": "node server.js"
   },
   "dependencies": {
     "express": "^4.18.2",
