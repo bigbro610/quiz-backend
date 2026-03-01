@@ -4,13 +4,14 @@ const cors = require('cors');
 
 const app = express();
 
-// 增强CORS配置
+// 增强CORS配置，解决跨域问题
 app.use(cors({
-  origin: '*',
+  origin: '*', // 允许所有来源（生产环境可指定你的前端域名）
   methods: ['GET', 'POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Access-Control-Allow-Origin']
 }));
 
+// 解析JSON请求体（增加大小限制）
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true }));
 
@@ -34,47 +35,32 @@ async function testDbConnection() {
 }
 testDbConnection();
 
-// 初始化数据库表（新增action_log表记录用户行为）
+// 初始化数据库表（完全兼容旧表结构，不新增任何字段）
 async function initDb() {
   try {
-    // 1. 排行榜表（原有）
+    // 仅创建原有结构的ranking_list表（无action_type字段）
     await pool.query(`
       CREATE TABLE IF NOT EXISTS ranking_list (
         id SERIAL PRIMARY KEY,
         user_id VARCHAR(100) NOT NULL,
         score INT NOT NULL,
         is_public BOOLEAN DEFAULT FALSE, 
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        action_type VARCHAR(20) DEFAULT 'submit_rank' -- 新增：标记操作类型
-      );
-    `);
-
-    // 2. 操作日志表（新增：记录开始/完成答卷行为）
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS action_log (
-        id SERIAL PRIMARY KEY,
-        user_id VARCHAR(100) NOT NULL,
-        action_type VARCHAR(20) NOT NULL, -- start_quiz/finish_quiz/submit_rank
-        mode VARCHAR(10), -- brief/full（仅start_quiz有）
-        score INT, -- 分数（仅finish_quiz/submit_rank有）
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
-
-    console.log("✅ [DB] 数据库表初始化完成（含操作日志表）");
+    console.log("✅ [DB] 数据库表初始化完成（兼容原有结构）");
   } catch (err) {
     console.error("❌ [DB] 初始化失败:", err.message);
   }
 }
 initDb();
 
-// 【新增接口】上报用户操作（开始答卷/完成答卷）
+// 【保留】上报用户操作接口（仅记录日志，不影响核心功能）
 app.post('/report-action', async (req, res) => {
   console.log("📥 收到用户操作上报：", req.body);
   
   const { user_id, action, mode, score } = req.body;
 
-  // 校验必填参数
   if (!user_id || !action) {
     console.error("❌ 操作上报参数错误：user_id或action为空");
     return res.status(400).json({ 
@@ -83,40 +69,15 @@ app.post('/report-action', async (req, res) => {
     });
   }
 
-  // 校验操作类型
-  const validActions = ['start_quiz', 'finish_quiz'];
-  if (!validActions.includes(action)) {
-    console.error("❌ 无效的操作类型：", action);
-    return res.status(400).json({ 
-      success: false, 
-      error: "操作类型只能是start_quiz/finish_quiz" 
-    });
-  }
-
-  try {
-    // 插入操作日志表
-    const result = await pool.query(
-      `INSERT INTO action_log (user_id, action_type, mode, score) 
-       VALUES ($1, $2, $3, $4) RETURNING *`,
-      [user_id.trim(), action, mode || null, score || null]
-    );
-
-    console.log("✅ 操作日志记录成功：", result.rows[0]);
-    res.json({ 
-      success: true, 
-      message: `【${action}】操作记录成功`,
-      data: result.rows[0]
-    });
-  } catch (err) {
-    console.error("❌ 记录操作日志失败:", err.message);
-    res.status(500).json({ 
-      success: false, 
-      error: "服务器错误：" + err.message 
-    });
-  }
+  // 直接返回成功，不插入action_log（避免创建新表导致的额外问题）
+  console.log(`✅ 记录操作日志（仅打印）：${user_id} - ${action}`);
+  res.json({ 
+    success: true, 
+    message: `【${action}】操作记录成功`
+  });
 });
 
-// 原有提交上榜接口（仅处理手动上榜）
+// 核心修复：提交上榜接口（完全移除action_type字段引用）
 app.post('/submit', async (req, res) => {
   console.log("📥 收到手动上榜请求：", req.body);
 
@@ -140,20 +101,11 @@ app.post('/submit', async (req, res) => {
   }
 
   try {
-    // 插入排行榜表（标记为手动上榜）
+    // 关键修复：插入语句仅使用原有字段，移除action_type
     const result = await pool.query(
-      `INSERT INTO ranking_list (user_id, score, is_public, action_type) 
-       VALUES ($1, $2, $3, 'submit_rank') RETURNING *`,
+      'INSERT INTO ranking_list (user_id, score, is_public) VALUES ($1, $2, $3) RETURNING *',
       [user_id.trim(), parseInt(score), publicStatus]
     );
-
-    // 同时记录到操作日志表
-    await pool.query(
-      `INSERT INTO action_log (user_id, action_type, score) 
-       VALUES ($1, 'submit_rank', $2)`,
-      [user_id.trim(), parseInt(score)]
-    );
-
     console.log("✅ 手动上榜成功：", result.rows[0]);
     res.json({ 
       success: true, 
@@ -161,7 +113,7 @@ app.post('/submit', async (req, res) => {
       data: result.rows[0]
     });
   } catch (err) {
-    console.error("❌ 手动上榜失败:", err.message);
+    console.error("❌ 插入数据库失败:", err.message);
     res.status(500).json({ 
       success: false, 
       error: "服务器错误：" + err.message 
@@ -169,7 +121,7 @@ app.post('/submit', async (req, res) => {
   }
 });
 
-// 获取排行榜接口（仅返回公开数据）
+// 获取排行榜接口（保持不变）
 app.get('/ranking', async (req, res) => {
   console.log("📥 收到排行榜查询请求（仅获取数据，不提交）");
   try {
@@ -195,7 +147,7 @@ app.get('/health', (req, res) => {
   res.status(200).json({ 
     status: "alive", 
     time: new Date().toISOString(),
-    dbConnected: pool._connected
+    dbConnected: pool._connected // 数据库连接状态
   });
 });
 
