@@ -1,36 +1,39 @@
-// ... 其他引用不变
-const { createClient } = require('@supabase/supabase-js');
+const express = require('express');
+const cors = require('cors');
+const fs = require('fs');
+const path = require('path');
+const app = express();
 
-// 请确保这里的 URL 是以 https:// 开头的完整网址
-const supabaseUrl = 'https://mdthmoexabreuxadolwo.supabase.co'; 
-const supabaseKey = 'sb_publishable_ghU7PVKZ9N6YP2kmKYQj1g_kbSvAxs3';
-const supabase = createClient(supabaseUrl, supabaseKey);
+// 必须配置 CORS，否则 GitHub Pages 的前端无法访问这里
+app.use(cors());
+app.use(express.json());
 
-app.post('/submit-score', async (req, res) => {
+// 根目录访问提示（防止你打开链接看到 Cannot GET /）
+app.get('/', (req, res) => {
+    res.send('🚀 大帝的后端服务正在运行中...');
+});
+
+// 接收分数的核心接口
+app.post('/submit-score', (req, res) => {
     const { userId, score, mode } = req.body;
     
-    // 调试：看看收到的数据
-    console.log("准备存入 Supabase:", { userId, score, mode });
+    // 格式化日志内容
+    const logEntry = `[${new Date().toLocaleString()}] ID: ${userId} | 分数: ${score} | 模式: ${mode}\n`;
 
-    // 关键修正：确保 score 转成了数字（如果你的数据库字段是 int8）
-    const numericScore = parseInt(score);
+    // 将结果写入本地文件 results.txt
+    // 注意：Render 的免费磁盘是临时的，重启后文件会清空。
+    // 但你可以在 Render 的日志控制台（Logs）里实时看到这些打印信息。
+    fs.appendFile(path.join(__dirname, 'results.txt'), logEntry, (err) => {
+        if (err) {
+            console.error("写入失败:", err);
+            return res.status(500).json({ status: "error", message: "服务器写入失败" });
+        }
+        console.log("✅ 收到新纪录:", logEntry);
+        res.status(200).json({ status: "success", message: "太棒了！你的数据已成功传送给大帝。" });
+    });
+});
 
-    const { data, error } = await supabase
-        .from('quiz_results') // ⚠️ 检查：你在 Supabase 建立的表名是不是叫这个？
-        .insert([
-            { 
-                user_id: userId, // ⚠️ 检查：Supabase 里的列名是 user_id 还是 userId？
-                score: numericScore, 
-                mode: mode 
-            }
-        ]);
-
-    if (error) {
-        // 这一步最关键，如果失败，Render 日志会打印出原因
-        console.error("Supabase 报错详情:", error.message, error.details);
-        return res.status(500).json({ error: error.message });
-    }
-
-    console.log("✅ 成功同步到 Supabase");
-    res.status(200).json({ message: "OK" });
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
 });
