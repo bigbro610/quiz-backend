@@ -36,6 +36,8 @@ async function initDb() {
 }
 async function initDb() {
   try {
+    // --- 临时添加下面这一行，把 '你的ID' 换成你想删掉的名字 ---
+    // await pool.query("DELETE FROM ranking_list WHERE user_id = '试运行2'"); 
     
     // 如果你想清空全表重来，用这一行：
     // await pool.query("TRUNCATE TABLE ranking_list"); 
