@@ -1,22 +1,72 @@
 const express = require('express');
+const { Pool } = require('pg');
 const cors = require('cors');
-const fs = require('fs');
-const app = express();
+const https = require('https');
 
+const app = express();
 app.use(cors());
 app.use(express.json());
 
-app.get('/', (req, res) => res.send('大帝的后端正在待命！'));
-
-app.post('/submit-score', (req, res) => {
-    const { userId, score, mode } = req.body;
-    const log = `[${new Date().toLocaleString()}] ID: ${userId}, 分数: ${score}, 模式: ${mode}\n`;
-    
-    // 在 Render 的 Logs 窗口里直接打印出来，方便你看
-    console.log("新提交记录 >>", log);
-    
-    res.status(200).json({ message: "数据已成功送达大帝手中！" });
+// 连接 Render 自带的 PostgreSQL
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false }
 });
 
+// 初始化分数表
+async function initTable() {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS scores (
+        id SERIAL PRIMARY KEY,
+        user_id VARCHAR(50) NOT NULL,
+        score INT NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+    `);
+    console.log('数据表初始化成功');
+  } catch (err) {
+    console.error('表初始化失败', err);
+  }
+}
+initTable();
+
+// 1. 提交分数接口
+app.post('/submit', async (req, res) => {
+  const { user_id, score } = req.body;
+  try {
+    await pool.query(
+      'INSERT INTO scores (user_id, score) VALUES ($1, $2)',
+      [user_id, score]
+    );
+    res.json({ success: true });
+  } catch (err) {
+    res.json({ success: false });
+  }
+});
+
+// 2. 获取排行榜接口（从高到低）
+app.get('/ranking', async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT user_id, score FROM scores ORDER BY score DESC LIMIT 100'
+    );
+    res.json(result.rows);
+  } catch (err) {
+    res.json([]);
+  }
+});
+
+// 3. 防休眠：每10分钟自己访问自己
+const selfUrl = 'https://da-di-quizhou-duan.onrender.com/ranking';
+function keepAlive() {
+  https.get(selfUrl, (res) => {}).on('error', () => {});
+}
+setInterval(keepAlive, 600000);
+keepAlive();
+
+// 启动服务
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`服务已启动`));
+app.listen(PORT, () => {
+  console.log(`服务已启动，端口：${PORT}`);
+});
