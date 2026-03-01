@@ -71,12 +71,18 @@ app.post('/submit', async (req, res) => {
   }
 });
 
-// [获取排行榜接口]
+// [获取排行榜接口] - 已修改：同名合并，只取最高分
 app.get('/ranking', async (req, res) => {
   try {
-    const result = await pool.query(
-      'SELECT user_id, score FROM ranking_list ORDER BY score DESC, created_at ASC LIMIT 10'
-    );
+    // 使用 GROUP BY 聚合同一个 user_id 的数据，取 MAX(score) 作为展示分数
+    // MIN(created_at) 可以保证如果两人最高分相同，先考出这个分数的人排前面
+    const result = await pool.query(`
+      SELECT user_id, MAX(score) as score 
+      FROM ranking_list 
+      GROUP BY user_id 
+      ORDER BY score DESC, MIN(created_at) ASC 
+      LIMIT 10
+    `);
     res.json(result.rows);
   } catch (err) {
     console.error("❌ [获取排行失败]:", err.message);
