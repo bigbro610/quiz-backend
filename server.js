@@ -69,30 +69,8 @@ app.post('/submit', async (req, res) => {
     console.error("❌ [数据库错误]:", err.message);
     res.status(500).json({ success: false, error: "数据库写入失败: " + err.message });
   }
-});// [管理接口] - 模糊清理所有测试数据
-app.get('/delete-test', async (req, res) => {
-  try {
-    // 使用 ILIKE (不区分大小写) 和 % (模糊匹配)
-    // 这将删除所有包含 "试运行" 字样的数据，不管后面有没有空格或数字
-    const result = await pool.query("DELETE FROM ranking_list WHERE user_id LIKE '%试运行%'");
-    
-    console.log(`🗑️ [手动清理] 影响行数: ${result.rowCount}`);
-    res.send(`清理成功！已从数据库删除 ${result.rowCount} 条包含“试运行”的记录。`);
-  } catch (err) {
-    console.error("删除失败:", err.message);
-    res.status(500).send("数据库错误: " + err.message);
-  }
 });
 
-// [管理接口] - 万能重置（只有在你彻底想清空排行榜时访问）
-app.get('/clear-all-dangerously', async (req, res) => {
-  try {
-    await pool.query("TRUNCATE TABLE ranking_list");
-    res.send("💥 警告：数据库已完全清空！所有排名已消失。");
-  } catch (err) {
-    res.status(500).send("清空失败: " + err.message);
-  }
-});
 // [获取排行榜接口] - 已修改：同名合并，只取最高分
 app.get('/ranking', async (req, res) => {
   try {
