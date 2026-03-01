@@ -41,7 +41,7 @@ app.post('/submit', async (req, res) => {
     );
     res.json({ success: true });
   } catch (err) {
-    res.json({ success: false });
+    res.json({ success: false, error: err.message });
   }
 });
 
@@ -57,12 +57,22 @@ app.get('/ranking', async (req, res) => {
   }
 });
 
-// 3. 防休眠：每10分钟自己访问自己
-const selfUrl = 'https://da-di-quizhou-duan.onrender.com/ranking';
+// 3. 健康检查+防休眠：每10分钟自己访问自己
+app.get('/health', (req, res) => {
+  res.send('ok');
+});
+
+const selfUrl = 'https://da-di-quizhou-duan.onrender.com/health';
 function keepAlive() {
-  https.get(selfUrl, (res) => {}).on('error', () => {});
+  https.get(selfUrl, (res) => {
+    console.log(`防休眠心跳：${new Date()}，状态码：${res.statusCode}`);
+  }).on('error', (err) => {
+    console.error(`防休眠心跳失败：${new Date()}，错误：${err.message}`);
+  });
 }
+// 每10分钟执行一次（600000毫秒）
 setInterval(keepAlive, 600000);
+// 启动时立刻执行一次
 keepAlive();
 
 // 启动服务
