@@ -1,9 +1,9 @@
 {
   "name": "quiz-backend",
   "version": "1.0.0",
-  "main": "server.js", // 这里改成 server.js
+  "main": "server.js", 
   "scripts": {
-    "start": "node server.js" // 这里也改成 server.js
+    "start": "node server.js" 
   },
   "dependencies": {
     "express": "^4.18.2",
