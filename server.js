@@ -34,24 +34,7 @@ async function initDb() {
     console.error("❌ [DB] 数据库初始化失败:", err.message);
   }
 }
-async function initDb() {
-  try {
-    // --- 临时添加下面这一行，把 '你的ID' 换成你想删掉的名字 ---
-    // await pool.query("DELETE FROM ranking_list WHERE user_id = '试运行2'"); 
-    
-    // 如果你想清空全表重来，用这一行：
-    // await pool.query("TRUNCATE TABLE ranking_list"); 
-
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS ranking_list (
-        ...
-      );
-    `);
-    console.log("✅ [DB] 数据库已清理并就绪");
-  } catch (err) {
-    console.error("❌ [DB] 数据库操作失败:", err.message);
-  }
-}
+initDb();
 
 // 4. API 路由
 // [健康检查接口]
