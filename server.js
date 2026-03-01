@@ -1,18 +1,19 @@
 const express = require('express');
 const { Pool } = require('pg');
 const cors = require('cors');
+const https = require('https'); // 原生模块，无需安装
 
 const app = express();
 
-// 1. 配置跨域 (匹配你的前端需求)
+// 1. 基础配置
 app.use(cors());
 app.use(express.json());
 
-// 2. 数据库连接池
-// 请确保在 Render 后台环境变量中设置了 DATABASE_URL
+// 2. 数据库连接
+// 务必在 Render 后台 Environment 变量中添加 DATABASE_URL
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false } // Render 连接数据库必须开启 SSL
+  ssl: { rejectUnauthorized: false } 
 });
 
 // 3. 自动初始化数据库表
@@ -33,22 +34,21 @@ async function initDb() {
 }
 initDb();
 
-// 4. [POST] 提交分数接口 - 对应前端 submitToRanking()
+// 4. API 路由
+// [健康检查接口] 用于自唤醒和 Render 检测
+app.get('/health', (req, res) => res.send('OK'));
+
+// [提交分数]
 app.post('/submit', async (req, res) => {
   const { user_id, score } = req.body;
-
   if (!user_id || score === undefined) {
     return res.status(400).json({ success: false, error: "ID或分数不能为空" });
   }
-
   try {
-    // 插入数据
     await pool.query(
       'INSERT INTO ranking_list (user_id, score) VALUES ($1, $2)',
       [user_id, parseInt(score)]
     );
-    
-    console.log(`📥 新纪录: ${user_id} 提交了 ${score} 分`);
     res.json({ success: true });
   } catch (err) {
     console.error("提交失败:", err.message);
@@ -56,10 +56,9 @@ app.post('/submit', async (req, res) => {
   }
 });
 
-// 5. [GET] 获取排行榜接口 - 对应前端 loadRanking()
+// [获取排行榜]
 app.get('/ranking', async (req, res) => {
   try {
-    // 获取前 10 名，按分数降序，分数相同按时间升序（先达到的排前面）
     const result = await pool.query(
       'SELECT user_id, score FROM ranking_list ORDER BY score DESC, created_at ASC LIMIT 10'
     );
@@ -70,10 +69,22 @@ app.get('/ranking', async (req, res) => {
   }
 });
 
-// 6. 健康检查接口
-app.get('/health', (req, res) => res.send('Server is running'));
+// 5. --- 方案一：自运行防止休眠功能 ---
+const SELF_URL = "https://quiz-backend-1-lrmy.onrender.com/health";
 
+// 每 14 分钟请求一次自己，防止 Render 进入休眠
+setInterval(() => {
+  https.get(SELF_URL, (res) => {
+    console.log(`💓 自唤醒成功 (状态码: ${res.statusCode}) - ${new Date().toLocaleTimeString()}`);
+  }).on('error', (err) => {
+    console.error("❌ 自唤醒失败:", err.message);
+  });
+}, 14 * 60 * 1000); 
+// -----------------------------------
+
+// 6. 启动服务
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`🚀 后端服务已启动: http://localhost:${PORT}`);
+  console.log(`🚀 后端已启动: http://localhost:${PORT}`);
+  console.log(`💓 已开启自唤醒模式，每 14 分钟将请求一次: ${SELF_URL}`);
 });
