@@ -81,16 +81,6 @@ app.get('/delete-test', async (req, res) => {
     res.status(500).send("删除失败: " + err.message);
   }
 });
-
-// [全量清空接口] - 慎用！只有在你确定要重置所有排行榜时才访问
-app.get('/clear-all-data-danger', async (req, res) => {
-  try {
-    await pool.query('TRUNCATE TABLE ranking_list');
-    res.send("数据库已完全清空！");
-  } catch (err) {
-    res.status(500).send("清空失败: " + err.message);
-  }
-});
 // [获取排行榜接口] - 已修改：同名合并，只取最高分
 app.get('/ranking', async (req, res) => {
   try {
