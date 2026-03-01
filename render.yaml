@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: quiz-backend
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node server.js
+    envVars:
+      - key: DATABASE_URL
+        value: postgresql://username:password@hostname:port/dbname # 填入你的数据库地址
