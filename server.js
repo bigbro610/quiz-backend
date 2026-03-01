@@ -157,6 +157,21 @@ app.use((req, res) => {
   res.status(404).json({ success: false, error: "接口不存在" });
 });
 
+//  防止 Render 休眠的心跳功能 (方案一)
+const SELF_URL = "https://quiz-backend-1-lrmy.onrender.com/health";
+
+setInterval(() => {
+  https.get(SELF_URL, (res) => {
+    if (res.statusCode === 200) {
+      console.log(`💓 [心跳] 自唤醒成功 - ${new Date().toLocaleTimeString()}`);
+    }
+  }).on('error', (err) => {
+    console.error("❌ [心跳失败]:", err.message);
+  });
+}, 14 * 60 * 1000); // 14分钟一次
+
+
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Server running on port ${PORT}`);
