@@ -1,42 +1,36 @@
+// ... 其他引用不变
 const { createClient } = require('@supabase/supabase-js');
-const express = require('express');
-const cors = require('cors');
-const app = express();
 
-// 替换为你自己的 Supabase 信息
-const supabaseUrl = 'sb_publishable_ghU7PVKZ9N6YP2kmKYQj1g_kbSvAxs3。';
-const supabaseKey = 'sb_secret_FmoFpSaXyaCFY7XOh7yrCg_zM_-lDCA';
+// 请确保这里的 URL 是以 https:// 开头的完整网址
+const supabaseUrl = 'https://mdthmoexabreuxadolwo.supabase.co'; 
+const supabaseKey = 'sb_publishable_ghU7PVKZ9N6YP2kmKYQj1g_kbSvAxs3';
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-app.use(cors());
-app.use(express.json());
-
-// 接口 A：保存分数
 app.post('/submit-score', async (req, res) => {
     const { userId, score, mode } = req.body;
     
-    // 向数据库插入一行数据
+    // 调试：看看收到的数据
+    console.log("准备存入 Supabase:", { userId, score, mode });
+
+    // 关键修正：确保 score 转成了数字（如果你的数据库字段是 int8）
+    const numericScore = parseInt(score);
+
     const { data, error } = await supabase
-        .from('quiz_results')
-        .insert([{ user_id: userId, score: parseInt(score), mode: mode }]);
+        .from('quiz_results') // ⚠️ 检查：你在 Supabase 建立的表名是不是叫这个？
+        .insert([
+            { 
+                user_id: userId, // ⚠️ 检查：Supabase 里的列名是 user_id 还是 userId？
+                score: numericScore, 
+                mode: mode 
+            }
+        ]);
 
     if (error) {
-        return res.status(500).json({ message: "存入数据库失败" });
+        // 这一步最关键，如果失败，Render 日志会打印出原因
+        console.error("Supabase 报错详情:", error.message, error.details);
+        return res.status(500).json({ error: error.message });
     }
-    res.status(200).json({ message: "数据已永久保存到云端排行榜！" });
-});
 
-// 接口 B：获取排行榜（前10名）
-app.get('/leaderboard', async (req, res) => {
-    const { data, error } = await supabase
-        .from('quiz_results')
-        .select('*')
-        .order('score', { ascending: false }) // 按分数倒序排
-        .limit(10);
-    
-    if (error) return res.status(500).send(error);
-    res.json(data);
+    console.log("✅ 成功同步到 Supabase");
+    res.status(200).json({ message: "OK" });
 });
-
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log('Server running...'));
