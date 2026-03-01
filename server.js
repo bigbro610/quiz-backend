@@ -1,7 +1,6 @@
 const express = require('express');
 const { Pool } = require('pg');
 const cors = require('cors');
-const https = require('https');
 
 const app = express();
 app.use(cors());
@@ -12,11 +11,11 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false }
 });
 
-// 3. 数据库表初始化 (已加入自动重置逻辑)
+// 数据库表初始化
 async function initDb() {
   try {
-    // 【如果你想彻底清空旧表结构，请取消下面这行的注释，Push一次后再注释掉它】
-    //await pool.query('DROP TABLE IF EXISTS ranking_list'); 
+    // 如需重置表结构，取消下面注释，Push后再注释
+    // await pool.query('DROP TABLE IF EXISTS ranking_list'); 
 
     await pool.query(`
       CREATE TABLE IF NOT EXISTS ranking_list (
@@ -34,13 +33,17 @@ async function initDb() {
 }
 initDb();
 
-// [提交分数接口] - 支持静默记录和手动上榜
+// 提交分数接口 - 支持静默记录和手动上榜
 app.post('/submit', async (req, res) => {
   const { user_id, score, is_public } = req.body;
-  const publicStatus = is_public || false; // 默认不上榜
+  const publicStatus = is_public || false;
 
-  if (!user_id || score === undefined) {
-    return res.status(400).json({ success: false, error: "ID或分数不能为空" });
+  // 校验参数
+  if (!user_id || score === undefined || isNaN(score)) {
+    return res.status(400).json({ 
+      success: false, 
+      error: "参数错误：ID不能为空，分数必须是数字" 
+    });
   }
 
   try {
@@ -48,13 +51,21 @@ app.post('/submit', async (req, res) => {
       'INSERT INTO ranking_list (user_id, score, is_public) VALUES ($1, $2, $3) RETURNING *',
       [user_id, parseInt(score), publicStatus]
     );
-    res.json({ success: true, message: publicStatus ? "上榜成功" : "后台记录成功" });
+    res.json({ 
+      success: true, 
+      message: publicStatus ? "上榜成功" : "后台记录成功",
+      data: result.rows[0]
+    });
   } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
+    console.error("❌ 提交分数失败:", err.message);
+    res.status(500).json({ 
+      success: false, 
+      error: "服务器错误：" + err.message 
+    });
   }
 });
 
-// [获取排行榜接口] - 只筛选公开且最高的分数
+// 获取排行榜接口 - 只显示公开且最高的分数
 app.get('/ranking', async (req, res) => {
   try {
     const result = await pool.query(`
@@ -67,6 +78,7 @@ app.get('/ranking', async (req, res) => {
     `);
     res.json(result.rows);
   } catch (err) {
+    console.error("❌ 获取排行榜失败:", err.message);
     res.status(500).json([]);
   }
 });
