@@ -1,6 +1,8 @@
 const express = require('express');
 const { Pool } = require('pg');
 const cors = require('cors');
+// 新增：引入https模块用于心跳请求
+const https = require('https');
 
 const app = express();
 
@@ -157,23 +159,32 @@ app.use((req, res) => {
   res.status(404).json({ success: false, error: "接口不存在" });
 });
 
-//  防止 Render 休眠的心跳功能 (方案一)
-const SELF_URL = "https://quiz-backend-1-lrmy.onrender.com/health";
-
-setInterval(() => {
-  https.get(SELF_URL, (res) => {
-    if (res.statusCode === 200) {
-      console.log(`💓 [心跳] 自唤醒成功 - ${new Date().toLocaleTimeString()}`);
-    }
-  }).on('error', (err) => {
-    console.error("❌ [心跳失败]:", err.message);
-  });
-}, 14 * 60 * 1000); // 14分钟一次
-
-
-
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`🌐 访问地址：https://quiz-backend-1-lrmy.onrender.com`);
+
+  // ========== 整合你的Render心跳激活代码 ==========
+  const SELF_URL = "https://quiz-backend-1-lrmy.onrender.com/health";
+
+  // 启动后先执行一次心跳，确保服务激活
+  https.get(SELF_URL, (res) => {
+    if (res.statusCode === 200) {
+      console.log(`💓 [初始心跳] 自唤醒成功 - ${new Date().toLocaleTimeString()}`);
+    }
+  }).on('error', (err) => {
+    console.error("❌ [初始心跳失败]:", err.message);
+  });
+
+  // 14分钟定时心跳，防止Render休眠
+  setInterval(() => {
+    https.get(SELF_URL, (res) => {
+      if (res.statusCode === 200) {
+        console.log(`💓 [心跳] 自唤醒成功 - ${new Date().toLocaleTimeString()}`);
+      }
+    }).on('error', (err) => {
+      console.error("❌ [心跳失败]:", err.message);
+    });
+  }, 14 * 60 * 1000); // 14分钟一次
+  // ==============================================
 });
