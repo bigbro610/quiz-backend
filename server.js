@@ -34,7 +34,22 @@ async function initDb() {
     console.error("❌ [DB] 数据库初始化失败:", err.message);
   }
 }
-initDb();
+async function initDb() {
+  try {
+    
+    // 如果你想清空全表重来，用这一行：
+    // await pool.query("TRUNCATE TABLE ranking_list"); 
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS ranking_list (
+        ...
+      );
+    `);
+    console.log("✅ [DB] 数据库已清理并就绪");
+  } catch (err) {
+    console.error("❌ [DB] 数据库操作失败:", err.message);
+  }
+}
 
 // 4. API 路由
 // [健康检查接口]
