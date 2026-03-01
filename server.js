@@ -16,7 +16,7 @@ const pool = new Pool({
 async function initDb() {
   try {
     // 【如果你想彻底清空旧表结构，请取消下面这行的注释，Push一次后再注释掉它】
-    // await pool.query('DROP TABLE IF EXISTS ranking_list'); 
+     await pool.query('DROP TABLE IF EXISTS ranking_list'); 
 
     await pool.query(`
       CREATE TABLE IF NOT EXISTS ranking_list (
