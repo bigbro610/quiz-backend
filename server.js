@@ -72,7 +72,7 @@ app.post('/submit', async (req, res) => {
 });
 // [临时删除接口] - 访问一次即可删除指定的 ID
 app.get('/delete-test', async (req, res) => {
-  const targetId = '你的ID'; // <--- 把这里改成你想删掉的那个名字
+  const targetId = '试运行2'; // <--- 把这里改成你想删掉的那个名字
   try {
     await pool.query('DELETE FROM ranking_list WHERE user_id = $1', [targetId]);
     console.log(`🗑️ [手动清理] 已尝试删除用户: ${targetId}`);
