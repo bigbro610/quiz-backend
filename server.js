@@ -1,39 +1,42 @@
+const { createClient } = require('@supabase/supabase-js');
 const express = require('express');
 const cors = require('cors');
-const fs = require('fs');
-const path = require('path');
 const app = express();
 
-// 必须配置 CORS，否则 GitHub Pages 的前端无法访问这里
+// 替换为你自己的 Supabase 信息
+const supabaseUrl = 'sb_publishable_ghU7PVKZ9N6YP2kmKYQj1g_kbSvAxs3。';
+const supabaseKey = 'sb_secret_FmoFpSaXyaCFY7XOh7yrCg_zM_-lDCA';
+const supabase = createClient(supabaseUrl, supabaseKey);
+
 app.use(cors());
 app.use(express.json());
 
-// 根目录访问提示（防止你打开链接看到 Cannot GET /）
-app.get('/', (req, res) => {
-    res.send('🚀 大帝的后端服务正在运行中...');
-});
-
-// 接收分数的核心接口
-app.post('/submit-score', (req, res) => {
+// 接口 A：保存分数
+app.post('/submit-score', async (req, res) => {
     const { userId, score, mode } = req.body;
     
-    // 格式化日志内容
-    const logEntry = `[${new Date().toLocaleString()}] ID: ${userId} | 分数: ${score} | 模式: ${mode}\n`;
+    // 向数据库插入一行数据
+    const { data, error } = await supabase
+        .from('quiz_results')
+        .insert([{ user_id: userId, score: parseInt(score), mode: mode }]);
 
-    // 将结果写入本地文件 results.txt
-    // 注意：Render 的免费磁盘是临时的，重启后文件会清空。
-    // 但你可以在 Render 的日志控制台（Logs）里实时看到这些打印信息。
-    fs.appendFile(path.join(__dirname, 'results.txt'), logEntry, (err) => {
-        if (err) {
-            console.error("写入失败:", err);
-            return res.status(500).json({ status: "error", message: "服务器写入失败" });
-        }
-        console.log("✅ 收到新纪录:", logEntry);
-        res.status(200).json({ status: "success", message: "太棒了！你的数据已成功传送给大帝。" });
-    });
+    if (error) {
+        return res.status(500).json({ message: "存入数据库失败" });
+    }
+    res.status(200).json({ message: "数据已永久保存到云端排行榜！" });
+});
+
+// 接口 B：获取排行榜（前10名）
+app.get('/leaderboard', async (req, res) => {
+    const { data, error } = await supabase
+        .from('quiz_results')
+        .select('*')
+        .order('score', { ascending: false }) // 按分数倒序排
+        .limit(10);
+    
+    if (error) return res.status(500).send(error);
+    res.json(data);
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
-});
+app.listen(PORT, () => console.log('Server running...'));
